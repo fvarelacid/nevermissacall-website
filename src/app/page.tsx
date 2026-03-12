@@ -25,7 +25,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="bg-slate-900 border-t border-white/10 py-8 px-6">
         <div className="max-w-5xl mx-auto flex flex-col items-center gap-3">
-          <Image src="/logo.png" alt="NeverMissACall" width={100} height={28} className="opacity-70" />
+          <Image src="/logo.png" alt="NeverMissACall" width={300} height={84} className="opacity-70" />
           <p className="text-slate-500 text-xs">
             &copy; {new Date().getFullYear()} NeverMissACall. Todos os direitos reservados.
           </p>

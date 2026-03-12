@@ -27,11 +27,11 @@ export function Hero({ onCTAClick }: HeroProps) {
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-blue-100/40 blur-3xl pointer-events-none" />
 
       {/* Logo at top */}
-      <div className="absolute top-6 left-6 z-20">
-        <Image src="/logo.png" alt="NeverMissACall" width={140} height={40} priority />
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 w-[280px] md:w-[420px]">
+        <Image src="/logo.png" alt="NeverMissACall" width={420} height={120} priority className="w-full h-auto" />
       </div>
 
-      <div className="relative z-10 max-w-4xl mx-auto space-y-8">
+      <div className="relative z-10 max-w-4xl mx-auto space-y-8 pt-24 md:pt-28">
         {/* Badge */}
         <motion.div
           custom={0}
@@ -41,7 +41,7 @@ export function Hero({ onCTAClick }: HeroProps) {
           className="inline-flex items-center gap-2 bg-white border border-blue-100 text-blue-700 text-xs font-semibold px-4 py-2 rounded-full shadow-soft"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-          Assistente de voz com IA para clínicas de estética
+          Assistente de voz com IA para clínicas
         </motion.div>
 
         {/* Headline */}
@@ -67,7 +67,7 @@ export function Hero({ onCTAClick }: HeroProps) {
           variants={fadeUp}
           className="text-lg md:text-xl text-gray-500 max-w-2xl mx-auto leading-relaxed"
         >
-          O assistente de voz para clínicas de estética que atende quando a receção está ocupada
+          O assistente de voz para clínicas que atende quando a receção está ocupada
           e ajuda a marcar consultas automaticamente — sem perder o toque humano.
         </motion.p>
 
