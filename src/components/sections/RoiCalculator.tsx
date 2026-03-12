@@ -13,7 +13,7 @@ const DEFAULTS: RoiInputs = {
   workingDaysPerMonth: 22,
 }
 
-const AGENT_MONTHLY_COST = 299
+const AGENT_MONTHLY_COST = 249
 
 function calculateROI(inputs: RoiInputs): RoiOutputs {
   const missedCallsPerDay = inputs.callsPerDay * (inputs.missedCallsPercent / 100)
