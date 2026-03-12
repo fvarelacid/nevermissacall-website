@@ -3,6 +3,8 @@
 import { motion } from 'framer-motion'
 import { Check } from 'lucide-react'
 
+const CALENDLY_LINK = 'https://calendly.com/vsoares-primestrategy/30min'
+
 interface PricingProps {
   onCTAClick: () => void
 }
@@ -78,12 +80,14 @@ export function Pricing({ onCTAClick }: PricingProps) {
               ))}
             </div>
 
-            <button
-              onClick={onCTAClick}
-              className="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-semibold text-base hover:opacity-90 active:scale-[0.98] transition-all duration-150 shadow-lg shadow-blue-200"
+            <a
+              href={CALENDLY_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white font-semibold text-base text-center hover:opacity-90 active:scale-[0.98] transition-all duration-150 shadow-lg shadow-blue-200"
             >
               Começar agora
-            </button>
+            </a>
 
           </div>
         </motion.div>
