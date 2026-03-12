@@ -20,14 +20,24 @@ function calculateROI(inputs: RoiInputs): RoiOutputs {
   const missedCallsPerMonth = Math.round(missedCallsPerDay * inputs.workingDaysPerMonth)
   const lostConsultations = Math.round(missedCallsPerMonth * (inputs.conversionRate / 100))
   const lostRevenuePerMonth = lostConsultations * inputs.avgConsultationValue
-  const recoveredRevenue = lostRevenuePerMonth * 0.8
-  const annualROIEstimate = Math.round((recoveredRevenue - AGENT_MONTHLY_COST) * 12)
+  const annualROIEstimate = Math.round(lostRevenuePerMonth * 12 - AGENT_MONTHLY_COST * 12)
+
+  // How many consultations needed to cover annual cost, expressed as % of annual missed consultations
+  const annualCost = AGENT_MONTHLY_COST * 12
+  const consultationsNeeded = inputs.avgConsultationValue > 0
+    ? annualCost / inputs.avgConsultationValue
+    : 0
+  const totalMissedPerYear = lostConsultations * 12
+  const breakEvenPercent = totalMissedPerYear > 0
+    ? Math.round((consultationsNeeded / totalMissedPerYear) * 100)
+    : 0
 
   return {
     missedCallsPerMonth,
     lostConsultations,
     lostRevenuePerMonth,
     annualROIEstimate,
+    breakEvenPercent,
   }
 }
 
@@ -262,9 +272,11 @@ export function RoiCalculator({ onCTAClick }: RoiCalculatorProps) {
                 em consultas não marcadas.
               </p>
               <p className="text-sm text-blue-200">
-                Se recuperar apenas{' '}
-                <span className="text-white font-semibold">80% dessas chamadas</span>, o sistema
-                paga-se a si próprio — e ainda gera retorno.
+                Para pagar o sistema (€{(AGENT_MONTHLY_COST * 12).toLocaleString('pt-PT')}/ano), basta recuperar{' '}
+                <span className="text-white font-semibold">
+                  {outputs.breakEvenPercent > 0 ? `${outputs.breakEvenPercent}% das consultas perdidas` : 'algumas consultas perdidas'}
+                </span>{' '}
+                — o resto é lucro.
               </p>
             </div>
 

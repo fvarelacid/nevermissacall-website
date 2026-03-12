@@ -19,4 +19,5 @@ export interface RoiOutputs {
   lostConsultations: number
   lostRevenuePerMonth: number
   annualROIEstimate: number
+  breakEvenPercent: number
 }
