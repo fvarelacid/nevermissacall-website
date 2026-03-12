@@ -106,11 +106,15 @@ export class VoiceClient {
       })
 
       // Capture mic → resample → send over WS
+      let sendCount = 0
       this.workletNode.port.onmessage = (e: MessageEvent<Float32Array>) => {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
         const resampled = resample(e.data, nativeRate, TARGET_SAMPLE_RATE)
         const pcm = float32ToInt16(resampled)
         this.ws.send(pcm)
+        if (sendCount++ < 5) {
+          console.log('[VoiceClient] Sent audio chunk:', pcm.byteLength, 'bytes (16kHz PCM)')
+        }
       }
 
       this.sourceNode.connect(this.workletNode)
@@ -129,22 +133,30 @@ export class VoiceClient {
       this.ws.binaryType = 'arraybuffer'
 
       this.ws.onopen = () => {
+        console.log('[VoiceClient] WebSocket opened')
         this.playbackTime = 0
         this.setState('listening')
       }
 
       this.ws.onmessage = (event: MessageEvent) => {
+        if (typeof event.data === 'string') {
+          console.log('[VoiceClient] Text message:', event.data)
+          return
+        }
         if (!(event.data instanceof ArrayBuffer)) return
+        console.log('[VoiceClient] Audio received:', event.data.byteLength, 'bytes')
         this.playPcm(event.data)
       }
 
-      this.ws.onerror = () => {
+      this.ws.onerror = (e) => {
+        console.error('[VoiceClient] WebSocket error:', e)
         this.callbacks.onError('Não foi possível ligar ao assistente. Tenta novamente.')
         this.cleanup()
         this.setState('idle')
       }
 
-      this.ws.onclose = () => {
+      this.ws.onclose = (e) => {
+        console.log('[VoiceClient] WebSocket closed — code:', e.code, 'reason:', e.reason, 'wasClean:', e.wasClean)
         if (this.state !== 'idle') {
           this.cleanup()
           this.setState('ended')
