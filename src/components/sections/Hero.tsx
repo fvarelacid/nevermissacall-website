@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { Phone, ArrowRight, Calendar } from 'lucide-react'
 
@@ -25,6 +26,10 @@ export function Hero({ onCTAClick }: HeroProps) {
       {/* Decorative orb */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-blue-100/40 blur-3xl pointer-events-none" />
 
+      {/* Logo at top */}
+      <div className="absolute top-6 left-6 z-20">
+        <Image src="/logo.png" alt="NeverMissACall" width={140} height={40} priority />
+      </div>
 
       <div className="relative z-10 max-w-4xl mx-auto space-y-8">
         {/* Badge */}
