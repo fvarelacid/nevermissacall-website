@@ -3,8 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Phone, PhoneOff, Mic, Volume2 } from 'lucide-react'
-import Vapi from '@vapi-ai/web'
-import { VAPI_PUBLIC_KEY, VAPI_ASSISTANT_ID, type AgentState } from '@/lib/vapi'
+import { VoiceClient, type AgentState } from '@/lib/voice-client'
 
 interface VoiceDemoProps {
   firstName: string
@@ -66,37 +65,20 @@ function WaveformBars({ active }: { active: boolean }) {
 export function VoiceDemo({ firstName }: VoiceDemoProps) {
   const [agentState, setAgentState] = useState<AgentState>('idle')
   const [error, setError] = useState<string | null>(null)
-  const vapiRef = useRef<Vapi | null>(null)
+  const clientRef = useRef<VoiceClient | null>(null)
 
   useEffect(() => {
-    const vapi = new Vapi(VAPI_PUBLIC_KEY)
-    vapiRef.current = vapi
-
-    vapi.on('call-start', () => {
-      setAgentState('listening')
-      setError(null)
+    const client = new VoiceClient({
+      onStateChange: setAgentState,
+      onError: (msg) => {
+        setError(msg)
+        setAgentState('idle')
+      },
     })
-
-    vapi.on('call-end', () => {
-      setAgentState('ended')
-    })
-
-    vapi.on('speech-start', () => {
-      setAgentState('speaking')
-    })
-
-    vapi.on('speech-end', () => {
-      setAgentState('listening')
-    })
-
-    vapi.on('error', (err) => {
-      console.error('VAPI error:', err)
-      setError('Não foi possível ligar ao assistente. Tenta novamente.')
-      setAgentState('idle')
-    })
+    clientRef.current = client
 
     return () => {
-      vapi.stop()
+      client.destroy()
     }
   }, [])
 
@@ -105,20 +87,11 @@ export function VoiceDemo({ firstName }: VoiceDemoProps) {
   const handleStart = useCallback(async () => {
     if (isActive) return
     setError(null)
-
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true })
-    } catch {
-      setError('Precisamos de acesso ao microfone para a demo de voz.')
-      return
-    }
-
-    setAgentState('connecting')
-    vapiRef.current?.start(VAPI_ASSISTANT_ID)
+    await clientRef.current?.start()
   }, [isActive])
 
   const handleEnd = useCallback(() => {
-    vapiRef.current?.stop()
+    clientRef.current?.stop()
   }, [])
 
   return (
