@@ -134,10 +134,17 @@ export class VoiceClient {
         }
       }
 
+      let msgCount = 0
       this.ws.onmessage = (event: MessageEvent) => {
-        // Server sends raw PCM binary frames back
-        if (event.data instanceof ArrayBuffer && event.data.byteLength > 0) {
-          this.playPcm(event.data)
+        const data = event.data
+        if (msgCount++ < 10) {
+          console.log('[VoiceClient] Received:', typeof data, data instanceof ArrayBuffer ? `ArrayBuffer(${data.byteLength})` : data instanceof Blob ? `Blob(${data.size})` : typeof data === 'string' ? `String("${data.slice(0, 100)}")` : data)
+        }
+
+        if (data instanceof ArrayBuffer && data.byteLength > 0) {
+          this.playPcm(data)
+        } else if (data instanceof Blob && data.size > 0) {
+          data.arrayBuffer().then((buf) => this.playPcm(buf))
         }
       }
 
