@@ -38,7 +38,7 @@ function encodeTag(fieldNumber: number, wireType: number): number[] {
 }
 
 function encodeLengthDelimited(fieldNumber: number, data: Uint8Array): number[] {
-  return [...encodeTag(fieldNumber, 2), ...encodeVarint(data.length), ...data]
+  return [...encodeTag(fieldNumber, 2), ...encodeVarint(data.length), ...Array.from(data)]
 }
 
 function encodeVarintField(fieldNumber: number, value: number): number[] {
