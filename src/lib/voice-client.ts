@@ -1,8 +1,6 @@
 /**
- * VoiceClient — raw PCM WebSocket connection to the Railway voice server.
- *
- * Protocol: no handshake — just send/receive raw PCM 16-bit, 16kHz, mono
- * binary frames after the WebSocket opens.
+ * VoiceClient — connects browser mic to the Railway Pipecat voice server
+ * via WebSocket using Pipecat's protobuf frame format.
  */
 
 export type AgentState = 'idle' | 'connecting' | 'listening' | 'speaking' | 'ended'
@@ -18,7 +16,157 @@ const WS_URL =
 
 const TARGET_SAMPLE_RATE = 16_000
 
-// ── Helpers ────────────────────────────────────────────────
+// ── Minimal Protobuf Encoder/Decoder ───────────────────────
+//
+// Pipecat Frame schema:
+//   message Frame { oneof frame { AudioRawFrame audio = 2; MessageFrame message = 4; } }
+//   message AudioRawFrame { uint64 id=1; string name=2; bytes audio=3; uint32 sample_rate=4; uint32 num_channels=5; }
+
+function encodeVarint(value: number): number[] {
+  const bytes: number[] = []
+  let v = value >>> 0 // treat as unsigned 32-bit
+  while (v > 0x7f) {
+    bytes.push((v & 0x7f) | 0x80)
+    v >>>= 7
+  }
+  bytes.push(v & 0x7f)
+  return bytes
+}
+
+function encodeTag(fieldNumber: number, wireType: number): number[] {
+  return encodeVarint((fieldNumber << 3) | wireType)
+}
+
+function encodeLengthDelimited(fieldNumber: number, data: Uint8Array): number[] {
+  return [...encodeTag(fieldNumber, 2), ...encodeVarint(data.length), ...data]
+}
+
+function encodeVarintField(fieldNumber: number, value: number): number[] {
+  return [...encodeTag(fieldNumber, 0), ...encodeVarint(value)]
+}
+
+function encodeStringField(fieldNumber: number, str: string): number[] {
+  const encoded = new TextEncoder().encode(str)
+  return encodeLengthDelimited(fieldNumber, encoded)
+}
+
+/** Encode an AudioRawFrame wrapped in a Frame (field 2) */
+function encodeAudioFrame(pcmBytes: Uint8Array, sampleRate: number, numChannels: number): Uint8Array {
+  // Build AudioRawFrame
+  const audioRawFrame = [
+    ...encodeVarintField(1, 0),                      // id = 0
+    ...encodeStringField(2, 'audio'),                // name = "audio"
+    ...encodeLengthDelimited(3, pcmBytes),           // audio = pcm bytes
+    ...encodeVarintField(4, sampleRate),             // sample_rate
+    ...encodeVarintField(5, numChannels),            // num_channels
+  ]
+
+  // Wrap in Frame.audio (field 2, length-delimited)
+  const frame = encodeLengthDelimited(2, new Uint8Array(audioRawFrame))
+  return new Uint8Array(frame)
+}
+
+// ── Protobuf Decoder ───────────────────────────────────────
+
+interface ProtoField {
+  fieldNumber: number
+  wireType: number
+  data: Uint8Array | number
+}
+
+function decodeVarint(buf: Uint8Array, offset: number): [number, number] {
+  let result = 0
+  let shift = 0
+  let pos = offset
+  while (pos < buf.length) {
+    const byte = buf[pos++]
+    result |= (byte & 0x7f) << shift
+    if ((byte & 0x80) === 0) return [result >>> 0, pos]
+    shift += 7
+    if (shift > 35) break // safety
+  }
+  return [result >>> 0, pos]
+}
+
+function decodeFields(buf: Uint8Array): ProtoField[] {
+  const fields: ProtoField[] = []
+  let pos = 0
+  while (pos < buf.length) {
+    const [tag, tagEnd] = decodeVarint(buf, pos)
+    pos = tagEnd
+    const fieldNumber = tag >>> 3
+    const wireType = tag & 0x07
+
+    if (wireType === 0) {
+      // Varint
+      const [value, valEnd] = decodeVarint(buf, pos)
+      pos = valEnd
+      fields.push({ fieldNumber, wireType, data: value })
+    } else if (wireType === 2) {
+      // Length-delimited
+      const [length, lenEnd] = decodeVarint(buf, pos)
+      pos = lenEnd
+      fields.push({ fieldNumber, wireType, data: buf.slice(pos, pos + length) })
+      pos += length
+    } else {
+      // Unknown wire type — skip (best effort)
+      break
+    }
+  }
+  return fields
+}
+
+interface DecodedAudio {
+  type: 'audio'
+  pcm: Int16Array
+  sampleRate: number
+}
+
+interface DecodedMessage {
+  type: 'message'
+  data: unknown
+}
+
+function decodeFrame(buf: Uint8Array): DecodedAudio | DecodedMessage | null {
+  const frameFields = decodeFields(buf)
+
+  for (const field of frameFields) {
+    if (field.fieldNumber === 2 && field.data instanceof Uint8Array) {
+      // AudioRawFrame
+      const audioFields = decodeFields(field.data)
+      let pcmBytes: Uint8Array | null = null
+      let sampleRate = TARGET_SAMPLE_RATE
+
+      for (const af of audioFields) {
+        if (af.fieldNumber === 3 && af.data instanceof Uint8Array) {
+          pcmBytes = af.data
+        } else if (af.fieldNumber === 4 && typeof af.data === 'number') {
+          sampleRate = af.data
+        }
+      }
+
+      if (pcmBytes && pcmBytes.length > 0) {
+        // Reinterpret bytes as Int16Array (must be aligned)
+        const aligned = new Uint8Array(pcmBytes).buffer
+        return { type: 'audio', pcm: new Int16Array(aligned), sampleRate }
+      }
+    } else if (field.fieldNumber === 4 && field.data instanceof Uint8Array) {
+      // MessageFrame — field 1 is JSON string
+      const msgFields = decodeFields(field.data)
+      for (const mf of msgFields) {
+        if (mf.fieldNumber === 1 && mf.data instanceof Uint8Array) {
+          try {
+            const json = new TextDecoder().decode(mf.data)
+            return { type: 'message', data: JSON.parse(json) }
+          } catch { /* ignore */ }
+        }
+      }
+    }
+  }
+  return null
+}
+
+// ── Audio Helpers ──────────────────────────────────────────
 
 function resample(input: Float32Array, fromRate: number, toRate: number): Float32Array {
   if (fromRate === toRate) return input
@@ -35,17 +183,16 @@ function resample(input: Float32Array, fromRate: number, toRate: number): Float3
   return output
 }
 
-function float32ToInt16(input: Float32Array): ArrayBuffer {
+function float32ToInt16(input: Float32Array): Int16Array {
   const output = new Int16Array(input.length)
   for (let i = 0; i < input.length; i++) {
     const s = Math.max(-1, Math.min(1, input[i]))
     output[i] = s < 0 ? s * 0x8000 : s * 0x7fff
   }
-  return output.buffer
+  return output
 }
 
-function int16ToFloat32(buffer: ArrayBuffer): Float32Array {
-  const int16 = new Int16Array(buffer)
+function int16ToFloat32(int16: Int16Array): Float32Array {
   const float32 = new Float32Array(int16.length)
   for (let i = 0; i < int16.length; i++) {
     float32[i] = int16[i] / (int16[i] < 0 ? 0x8000 : 0x7fff)
@@ -97,7 +244,7 @@ export class VoiceClient {
       await this.audioContext.audioWorklet.addModule('/audio-capture-processor.js')
 
       const nativeRate = this.audioContext.sampleRate
-      const bufferSize = Math.floor(nativeRate * 0.02) // 20ms chunks for low latency
+      const bufferSize = Math.floor(nativeRate * 0.02) // 20ms chunks
 
       this.sourceNode = this.audioContext.createMediaStreamSource(this.mediaStream)
       this.workletNode = new AudioWorkletNode(this.audioContext, 'audio-capture-processor', {
@@ -105,7 +252,6 @@ export class VoiceClient {
       })
 
       this.sourceNode.connect(this.workletNode)
-      // Worklet is a capture tap — don't connect to destination
     } catch (err) {
       console.error('Audio setup error:', err)
       this.callbacks.onError('Erro ao configurar áudio. Tenta novamente.')
@@ -114,37 +260,46 @@ export class VoiceClient {
       return
     }
 
-    // 3. WebSocket — no handshake, just raw PCM binary frames
+    // 3. WebSocket with protobuf framing
     try {
       this.ws = new WebSocket(WS_URL)
       this.ws.binaryType = 'arraybuffer'
 
       this.ws.onopen = () => {
-        console.log('[VoiceClient] WebSocket opened — streaming audio')
+        console.log('[VoiceClient] WebSocket opened — streaming protobuf audio frames')
         this.playbackTime = 0
         this.setState('listening')
 
-        // Start sending mic audio immediately after connection
+        // Start sending mic audio as protobuf-wrapped frames
         const nativeRate = this.audioContext!.sampleRate
         this.workletNode!.port.onmessage = (e: MessageEvent<Float32Array>) => {
           if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
           const resampled = resample(e.data, nativeRate, TARGET_SAMPLE_RATE)
-          const pcm = float32ToInt16(resampled)
-          this.ws.send(pcm)
+          const int16 = float32ToInt16(resampled)
+          const pcmBytes = new Uint8Array(int16.buffer)
+          const frame = encodeAudioFrame(pcmBytes, TARGET_SAMPLE_RATE, 1)
+          this.ws.send(frame)
         }
       }
 
       let msgCount = 0
       this.ws.onmessage = (event: MessageEvent) => {
-        const data = event.data
-        if (msgCount++ < 10) {
-          console.log('[VoiceClient] Received:', typeof data, data instanceof ArrayBuffer ? `ArrayBuffer(${data.byteLength})` : data instanceof Blob ? `Blob(${data.size})` : typeof data === 'string' ? `String("${data.slice(0, 100)}")` : data)
+        let buf: ArrayBuffer
+        if (event.data instanceof ArrayBuffer) {
+          buf = event.data
+        } else {
+          return
         }
 
-        if (data instanceof ArrayBuffer && data.byteLength > 0) {
-          this.playPcm(data)
-        } else if (data instanceof Blob && data.size > 0) {
-          data.arrayBuffer().then((buf) => this.playPcm(buf))
+        if (buf.byteLength === 0) return
+
+        const decoded = decodeFrame(new Uint8Array(buf))
+        if (msgCount++ < 10) {
+          console.log('[VoiceClient] Received frame:', decoded?.type, decoded?.type === 'audio' ? `${decoded.pcm.length} samples @ ${decoded.sampleRate}Hz` : decoded?.type === 'message' ? JSON.stringify(decoded.data) : 'unknown')
+        }
+
+        if (decoded?.type === 'audio') {
+          this.playAudio(decoded.pcm, decoded.sampleRate)
         }
       }
 
@@ -184,7 +339,7 @@ export class VoiceClient {
     this.callbacks.onStateChange(state)
   }
 
-  private playPcm(buffer: ArrayBuffer): void {
+  private playAudio(pcm: Int16Array, sampleRate: number): void {
     if (!this.audioContext) return
 
     this.setState('speaking')
@@ -195,8 +350,8 @@ export class VoiceClient {
       }
     }, 600)
 
-    const float32 = int16ToFloat32(buffer)
-    const audioBuffer = this.audioContext.createBuffer(1, float32.length, TARGET_SAMPLE_RATE)
+    const float32 = int16ToFloat32(pcm)
+    const audioBuffer = this.audioContext.createBuffer(1, float32.length, sampleRate)
     audioBuffer.getChannelData(0).set(float32)
 
     const source = this.audioContext.createBufferSource()
