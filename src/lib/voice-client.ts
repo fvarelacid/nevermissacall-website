@@ -1,7 +1,10 @@
 /**
- * VoiceClient — connects browser mic to the Railway voice server
- * via WebSocket, sending 16kHz 16-bit PCM and playing back the same.
+ * VoiceClient — wraps @pipecat-ai/client-js + websocket-transport
+ * to connect browser mic/speaker to the Railway Pipecat voice server.
  */
+
+import { PipecatClient, RTVIEvent } from '@pipecat-ai/client-js'
+import { WebSocketTransport } from '@pipecat-ai/websocket-transport'
 
 export type AgentState = 'idle' | 'connecting' | 'listening' | 'speaking' | 'ended'
 
@@ -14,63 +17,14 @@ const WS_URL =
   process.env.NEXT_PUBLIC_VOICE_WS_URL ??
   'wss://nevermissacall-production-23c7.up.railway.app/ws/web'
 
-const TARGET_SAMPLE_RATE = 16_000
-
-// ── Helpers ────────────────────────────────────────────────
-
-function resample(input: Float32Array, fromRate: number, toRate: number): Float32Array {
-  if (fromRate === toRate) return input
-  const ratio = fromRate / toRate
-  const outputLength = Math.floor(input.length / ratio)
-  const output = new Float32Array(outputLength)
-  for (let i = 0; i < outputLength; i++) {
-    const srcIndex = i * ratio
-    const low = Math.floor(srcIndex)
-    const high = Math.min(low + 1, input.length - 1)
-    const frac = srcIndex - low
-    output[i] = input[low] * (1 - frac) + input[high] * frac
-  }
-  return output
-}
-
-function float32ToInt16(input: Float32Array): ArrayBuffer {
-  const output = new Int16Array(input.length)
-  for (let i = 0; i < input.length; i++) {
-    const s = Math.max(-1, Math.min(1, input[i]))
-    output[i] = s < 0 ? s * 0x8000 : s * 0x7fff
-  }
-  return output.buffer
-}
-
-function int16ToFloat32(buffer: ArrayBuffer): Float32Array {
-  const int16 = new Int16Array(buffer)
-  const float32 = new Float32Array(int16.length)
-  for (let i = 0; i < int16.length; i++) {
-    float32[i] = int16[i] / (int16[i] < 0 ? 0x8000 : 0x7fff)
-  }
-  return float32
-}
-
-// ── VoiceClient ────────────────────────────────────────────
-
 export class VoiceClient {
   private callbacks: VoiceClientCallbacks
   private state: AgentState = 'idle'
-
-  private ws: WebSocket | null = null
-  private audioContext: AudioContext | null = null
-  private mediaStream: MediaStream | null = null
-  private sourceNode: MediaStreamAudioSourceNode | null = null
-  private workletNode: AudioWorkletNode | null = null
-
-  private playbackTime = 0
-  private speakingTimer: ReturnType<typeof setTimeout> | null = null
+  private client: PipecatClient | null = null
 
   constructor(callbacks: VoiceClientCallbacks) {
     this.callbacks = callbacks
   }
-
-  // ── Public API ─────────────────────────────────────────
 
   async start(): Promise<void> {
     if (this.state === 'connecting' || this.state === 'listening' || this.state === 'speaking') {
@@ -79,180 +33,79 @@ export class VoiceClient {
 
     this.setState('connecting')
 
-    // 1. Mic access
     try {
-      this.mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
+      const transport = new WebSocketTransport()
+
+      this.client = new PipecatClient({
+        transport,
+        enableMic: true,
+        enableCam: false,
+        callbacks: {
+          onConnected: () => {
+            console.log('[VoiceClient] Connected')
+          },
+          onBotReady: () => {
+            console.log('[VoiceClient] Bot ready')
+            this.setState('listening')
+          },
+          onBotStartedSpeaking: () => {
+            this.setState('speaking')
+          },
+          onBotStoppedSpeaking: () => {
+            if (this.state === 'speaking') {
+              this.setState('listening')
+            }
+          },
+          onUserStartedSpeaking: () => {
+            if (this.state !== 'speaking') {
+              this.setState('listening')
+            }
+          },
+          onDisconnected: () => {
+            console.log('[VoiceClient] Disconnected')
+            this.setState('ended')
+          },
+          onError: (msg) => {
+            console.error('[VoiceClient] Error:', msg)
+            this.callbacks.onError('Não foi possível ligar ao assistente. Tenta novamente.')
+          },
+          onTransportStateChanged: (state) => {
+            console.log('[VoiceClient] Transport state:', state)
+          },
+        },
       })
-    } catch {
-      this.callbacks.onError('Precisamos de acesso ao microfone para a demo de voz.')
-      this.setState('idle')
-      return
-    }
 
-    // 2. Audio context + worklet
-    try {
-      this.audioContext = new AudioContext()
-      await this.audioContext.resume()
-
-      await this.audioContext.audioWorklet.addModule('/audio-capture-processor.js')
-
-      const nativeRate = this.audioContext.sampleRate
-      const bufferSize = Math.floor(nativeRate * 0.1) // 100ms chunks
-
-      this.sourceNode = this.audioContext.createMediaStreamSource(this.mediaStream)
-      this.workletNode = new AudioWorkletNode(this.audioContext, 'audio-capture-processor', {
-        processorOptions: { bufferSize },
+      this.client.on(RTVIEvent.Error, (msg) => {
+        console.error('[VoiceClient] RTVI Error event:', msg)
       })
 
-      // Capture mic → resample → send over WS
-      let sendCount = 0
-      this.workletNode.port.onmessage = (e: MessageEvent<Float32Array>) => {
-        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
-        const resampled = resample(e.data, nativeRate, TARGET_SAMPLE_RATE)
-        const pcm = float32ToInt16(resampled)
-        this.ws.send(pcm)
-        if (sendCount++ < 5) {
-          console.log('[VoiceClient] Sent audio chunk:', pcm.byteLength, 'bytes (16kHz PCM)')
-        }
-      }
-
-      this.sourceNode.connect(this.workletNode)
-      // Worklet is a capture tap — don't connect to destination
+      await this.client.connect({ wsUrl: WS_URL })
     } catch (err) {
-      console.error('Audio setup error:', err)
-      this.callbacks.onError('Erro ao configurar áudio. Tenta novamente.')
-      this.cleanup()
-      this.setState('idle')
-      return
-    }
-
-    // 3. WebSocket
-    try {
-      this.ws = new WebSocket(WS_URL)
-      this.ws.binaryType = 'arraybuffer'
-
-      this.ws.onopen = () => {
-        console.log('[VoiceClient] WebSocket opened')
-        this.playbackTime = 0
-        this.setState('listening')
-      }
-
-      this.ws.onmessage = (event: MessageEvent) => {
-        if (typeof event.data === 'string') {
-          console.log('[VoiceClient] Text message:', event.data)
-          return
-        }
-        if (!(event.data instanceof ArrayBuffer)) return
-        console.log('[VoiceClient] Audio received:', event.data.byteLength, 'bytes')
-        this.playPcm(event.data)
-      }
-
-      this.ws.onerror = (e) => {
-        console.error('[VoiceClient] WebSocket error:', e)
-        this.callbacks.onError('Não foi possível ligar ao assistente. Tenta novamente.')
-        this.cleanup()
-        this.setState('idle')
-      }
-
-      this.ws.onclose = (e) => {
-        console.log('[VoiceClient] WebSocket closed — code:', e.code, 'reason:', e.reason, 'wasClean:', e.wasClean)
-        if (this.state !== 'idle') {
-          this.cleanup()
-          this.setState('ended')
-        }
-      }
-    } catch {
+      console.error('[VoiceClient] Connection error:', err)
       this.callbacks.onError('Não foi possível ligar ao assistente. Tenta novamente.')
-      this.cleanup()
+      this.client = null
       this.setState('idle')
     }
   }
 
   stop(): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.close(1000)
+    if (this.client) {
+      this.client.disconnect().catch(console.error)
+      this.client = null
     }
-    this.cleanup()
     this.setState('ended')
   }
 
   destroy(): void {
-    this.stop()
+    if (this.client) {
+      this.client.disconnect().catch(() => {})
+      this.client = null
+    }
     this.callbacks = { onStateChange: () => {}, onError: () => {} }
   }
-
-  // ── Private ────────────────────────────────────────────
 
   private setState(state: AgentState): void {
     this.state = state
     this.callbacks.onStateChange(state)
-  }
-
-  private playPcm(buffer: ArrayBuffer): void {
-    if (!this.audioContext) return
-
-    // Transition to speaking
-    this.setState('speaking')
-    if (this.speakingTimer) clearTimeout(this.speakingTimer)
-    this.speakingTimer = setTimeout(() => {
-      if (this.state === 'speaking') {
-        this.setState('listening')
-      }
-    }, 500)
-
-    const float32 = int16ToFloat32(buffer)
-    const audioBuffer = this.audioContext.createBuffer(1, float32.length, TARGET_SAMPLE_RATE)
-    audioBuffer.getChannelData(0).set(float32)
-
-    const source = this.audioContext.createBufferSource()
-    source.buffer = audioBuffer
-    source.connect(this.audioContext.destination)
-
-    const now = this.audioContext.currentTime
-    const startAt = Math.max(now, this.playbackTime)
-    source.start(startAt)
-    this.playbackTime = startAt + audioBuffer.duration
-  }
-
-  private cleanup(): void {
-    if (this.speakingTimer) {
-      clearTimeout(this.speakingTimer)
-      this.speakingTimer = null
-    }
-
-    if (this.workletNode) {
-      this.workletNode.port.onmessage = null
-      this.workletNode.disconnect()
-      this.workletNode = null
-    }
-
-    if (this.sourceNode) {
-      this.sourceNode.disconnect()
-      this.sourceNode = null
-    }
-
-    if (this.mediaStream) {
-      this.mediaStream.getTracks().forEach((t) => t.stop())
-      this.mediaStream = null
-    }
-
-    if (this.audioContext) {
-      this.audioContext.close().catch(() => {})
-      this.audioContext = null
-    }
-
-    if (this.ws) {
-      this.ws.onopen = null
-      this.ws.onmessage = null
-      this.ws.onerror = null
-      this.ws.onclose = null
-      if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
-        this.ws.close(1000)
-      }
-      this.ws = null
-    }
-
-    this.playbackTime = 0
   }
 }
