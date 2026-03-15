@@ -28,13 +28,12 @@ export function useModal(): UseModalReturn {
     setLeadData(data)
     setStep('demo')
 
-    // Fire-and-forget: send lead data to a webhook or analytics
-    // Replace with your endpoint when ready
-    // fetch('/api/leads', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(data),
-    // }).catch(console.error)
+    // Fire-and-forget: persist lead to Supabase
+    fetch('/api/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).catch(console.error)
   }, [])
 
   return { step, leadData, openModal, closeModal, submitLead }
