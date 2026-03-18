@@ -24,13 +24,23 @@ const plans = [
     subtitle: 'por clínica · configuração incluída',
     features: [...sharedFeatures, 'Até 100 chamadas por mês'],
     highlighted: false,
+    isCustom: false,
   },
   {
     name: 'Care Pro',
     price: '249',
     subtitle: 'por clínica · configuração incluída',
-    features: [...sharedFeatures, 'Chamadas ilimitadas'],
+    features: [...sharedFeatures, 'Até 300 chamadas por mês'],
     highlighted: true,
+    isCustom: false,
+  },
+  {
+    name: 'Care Unlimited',
+    price: null,
+    subtitle: 'por clínica · configuração incluída',
+    features: [...sharedFeatures, 'Chamadas ilimitadas', 'Proposta personalizada'],
+    highlighted: false,
+    isCustom: true,
   },
 ]
 
@@ -61,7 +71,7 @@ export function Pricing({ onCTAClick }: PricingProps) {
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {plans.map((plan) => (
             <motion.div
               key={plan.name}
@@ -91,13 +101,21 @@ export function Pricing({ onCTAClick }: PricingProps) {
                   {plan.name}
                 </p>
 
-                <div className="flex items-end justify-center gap-1 mb-1">
-                  <span className="text-3xl font-bold text-slate-700 mb-2">€</span>
-                  <span className="text-6xl font-extrabold text-slate-900 leading-none tracking-tight">
-                    {plan.price}
-                  </span>
-                  <span className="text-2xl font-medium text-slate-500 mb-2">/mês</span>
-                </div>
+                {plan.isCustom ? (
+                  <div className="flex items-end justify-center gap-1 mb-1">
+                    <span className="text-4xl font-extrabold text-slate-900 leading-none tracking-tight">
+                      Sob consulta
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-end justify-center gap-1 mb-1">
+                    <span className="text-3xl font-bold text-slate-700 mb-2">€</span>
+                    <span className="text-6xl font-extrabold text-slate-900 leading-none tracking-tight">
+                      {plan.price}
+                    </span>
+                    <span className="text-2xl font-medium text-slate-500 mb-2">/mês</span>
+                  </div>
+                )}
                 <p className="text-sm text-slate-400 mb-8">{plan.subtitle}</p>
 
                 <div className="border-t border-slate-100 pt-8 mb-8 space-y-3 text-left flex-1">
@@ -121,7 +139,7 @@ export function Pricing({ onCTAClick }: PricingProps) {
                       : 'bg-slate-900 text-white shadow-lg shadow-slate-200'
                   }`}
                 >
-                  Começar agora
+                  {plan.isCustom ? 'Marcar reunião' : 'Começar agora'}
                 </a>
 
               </div>
