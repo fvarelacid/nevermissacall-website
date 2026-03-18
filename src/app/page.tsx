@@ -8,6 +8,7 @@ import { RoiCalculator } from '@/components/sections/RoiCalculator'
 import { Pricing } from '@/components/sections/Pricing'
 import { BookMeeting } from '@/components/sections/BookMeeting'
 import { Modal } from '@/components/ui/Modal'
+import { Footer } from '@/components/Footer'
 
 export default function Home() {
   const { step, leadData, openModal, closeModal, submitLead } = useModal()
@@ -21,14 +22,7 @@ export default function Home() {
       <Pricing onCTAClick={openModal} />
       <BookMeeting onCTAClick={openModal} />
 
-      {/* Footer */}
-      <footer className="bg-slate-900 border-t border-white/10 py-8 px-6">
-        <div className="max-w-5xl mx-auto flex flex-col items-center gap-3">
-          <p className="text-slate-500 text-xs">
-            &copy; {new Date().getFullYear()} NeverMissACall. Todos os direitos reservados.
-          </p>
-        </div>
-      </footer>
+      <Footer />
 
       <Modal
         step={step}
