@@ -7,6 +7,7 @@ import { VoiceClient, type AgentState } from '@/lib/voice-client'
 
 interface VoiceDemoProps {
   firstName: string
+  email?: string
 }
 
 const STATE_LABELS: Record<AgentState, string> = {
@@ -62,25 +63,28 @@ function WaveformBars({ active }: { active: boolean }) {
   )
 }
 
-export function VoiceDemo({ firstName }: VoiceDemoProps) {
+export function VoiceDemo({ firstName, email }: VoiceDemoProps) {
   const [agentState, setAgentState] = useState<AgentState>('idle')
   const [error, setError] = useState<string | null>(null)
   const clientRef = useRef<VoiceClient | null>(null)
 
   useEffect(() => {
     const client = new VoiceClient({
-      onStateChange: setAgentState,
-      onError: (msg) => {
-        setError(msg)
-        setAgentState('idle')
+      callbacks: {
+        onStateChange: setAgentState,
+        onError: (msg) => {
+          setError(msg)
+          setAgentState('idle')
+        },
       },
+      leadEmail: email,
     })
     clientRef.current = client
 
     return () => {
       client.destroy()
     }
-  }, [])
+  }, [email])
 
   const isActive = agentState === 'connecting' || agentState === 'listening' || agentState === 'speaking'
 

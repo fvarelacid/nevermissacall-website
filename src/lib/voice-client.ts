@@ -10,6 +10,11 @@ export interface VoiceClientCallbacks {
   onError: (message: string) => void
 }
 
+export interface VoiceClientOptions {
+  callbacks: VoiceClientCallbacks
+  leadEmail?: string
+}
+
 const WS_URL =
   process.env.NEXT_PUBLIC_VOICE_WS_URL ??
   'wss://nevermissacall-production-23c7.up.railway.app/ws/web'
@@ -204,6 +209,7 @@ function int16ToFloat32(int16: Int16Array): Float32Array {
 
 export class VoiceClient {
   private callbacks: VoiceClientCallbacks
+  private leadEmail: string | undefined
   private state: AgentState = 'idle'
 
   private ws: WebSocket | null = null
@@ -215,8 +221,14 @@ export class VoiceClient {
   private playbackTime = 0
   private speakingTimer: ReturnType<typeof setTimeout> | null = null
 
-  constructor(callbacks: VoiceClientCallbacks) {
-    this.callbacks = callbacks
+  constructor(options: VoiceClientOptions | VoiceClientCallbacks) {
+    // Support both new-style options object and legacy callbacks-only shape
+    if ('callbacks' in options) {
+      this.callbacks = options.callbacks
+      this.leadEmail = options.leadEmail
+    } else {
+      this.callbacks = options
+    }
   }
 
   async start(): Promise<void> {
@@ -262,7 +274,10 @@ export class VoiceClient {
 
     // 3. WebSocket with protobuf framing
     try {
-      this.ws = new WebSocket(WS_URL)
+      const wsUrl = this.leadEmail
+        ? `${WS_URL}?lead_email=${encodeURIComponent(this.leadEmail)}`
+        : WS_URL
+      this.ws = new WebSocket(wsUrl)
       this.ws.binaryType = 'arraybuffer'
 
       this.ws.onopen = () => {

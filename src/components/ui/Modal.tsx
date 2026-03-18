@@ -112,7 +112,7 @@ export function Modal({ step, leadData, onClose, onSubmit }: ModalProps) {
                     exit={{ opacity: 0, x: -12 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <VoiceDemo firstName={leadData.firstName} />
+                    <VoiceDemo firstName={leadData.firstName} email={leadData.email} />
                   </motion.div>
                 )}
               </AnimatePresence>
