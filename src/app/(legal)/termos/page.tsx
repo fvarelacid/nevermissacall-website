@@ -44,7 +44,7 @@ export default function TermosPage() {
           ocupada ou indisponível
         </li>
         <li>
-          Resposta a dúvidas frequentes dos pacientes com base em informações
+          Resposta a dúvidas frequentes dos clientes com base em informações
           fornecidas pela clínica
         </li>
         <li>Marcação e cancelamento automático de consultas</li>

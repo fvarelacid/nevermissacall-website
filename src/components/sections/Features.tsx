@@ -56,14 +56,14 @@ export function Features() {
               {
                 icon: CalendarCheck,
                 title: 'Mais consultas marcadas',
-                desc: 'Permita ao paciente marcar logo, sem esperar por retorno.',
+                desc: 'Permita ao cliente marcar logo, sem esperar por retorno.',
                 color: 'text-blue-600',
                 bg: 'bg-blue-50',
               },
               {
                 icon: Clock,
                 title: 'Receção com menos carga',
-                desc: 'Liberta a equipa para se focar nos pacientes que já estão na clínica.',
+                desc: 'Liberta a equipa para se focar nos clientes que já estão na clínica.',
                 color: 'text-violet-600',
                 bg: 'bg-violet-50',
               },
@@ -180,7 +180,7 @@ export function Features() {
             <div className="hidden md:block absolute top-10 left-[20%] right-[20%] h-px bg-gradient-to-r from-transparent via-blue-200 to-transparent" />
 
             {[
-              { step: '01', title: 'O paciente liga', desc: 'O número da clínica toca como sempre.' },
+              { step: '01', title: 'O cliente liga', desc: 'O número da clínica toca como sempre.' },
               { step: '02', title: 'O assistente entra', desc: 'Atende quando a receção não consegue responder.' },
               { step: '03', title: 'A clínica recupera', desc: 'Oportunidades que antes se perdiam tornam-se consultas.' },
             ].map((item) => (

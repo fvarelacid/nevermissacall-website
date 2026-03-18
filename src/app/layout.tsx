@@ -12,7 +12,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'NeverMissACall — Assistente de Voz com IA para Clínicas',
   description:
-    'O assistente de voz com IA que atende quando a receção está ocupada e ajuda a marcar consultas automaticamente. Nunca mais perca uma chamada de um paciente.',
+    'O assistente de voz com IA que atende quando a receção está ocupada e ajuda a marcar consultas automaticamente. Nunca mais perca uma chamada de um cliente.',
   openGraph: {
     title: 'NeverMissACall — Assistente de Voz com IA para Clínicas',
     description:

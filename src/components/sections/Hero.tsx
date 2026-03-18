@@ -56,7 +56,7 @@ export function Hero({ onCTAClick }: HeroProps) {
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-violet-600">
             chamada
           </span>{' '}
-          de um paciente.
+          de um cliente.
         </motion.h1>
 
         {/* Subheadline */}

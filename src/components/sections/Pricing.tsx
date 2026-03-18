@@ -12,7 +12,7 @@ interface PricingProps {
 const sharedFeatures = [
   'Disponível 24h, 7 dias por semana, 365 dias por ano',
   'Marcação e cancelamento de consultas',
-  'Responde a dúvidas dos pacientes',
+  'Responde a dúvidas dos clientes',
   'Personalizado para a sua clínica',
   'Sem contratos de longa duração',
 ]
