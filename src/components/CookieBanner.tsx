@@ -31,8 +31,8 @@ export function CookieBanner() {
     <div className="fixed bottom-0 inset-x-0 z-50 p-4 sm:p-6">
       <div className="max-w-3xl mx-auto rounded-xl bg-slate-800 border border-white/10 p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row items-start sm:items-center gap-4">
         <p className="text-sm text-slate-300 flex-1">
-          Utilizamos cookies para melhorar a sua experiência de navegação.
-          Consulte a nossa{' '}
+          Este website utiliza tecnologias de armazenamento local e serviços
+          de terceiros que podem definir cookies. Consulte a nossa{' '}
           <Link
             href="/cookies"
             className="text-blue-400 underline hover:text-blue-300"

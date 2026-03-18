@@ -55,9 +55,9 @@ export default function PrivacidadePage() {
           de contacto
         </li>
         <li>
-          <strong>Dados de navegação</strong> — endereço IP, tipo de navegador,
-          páginas visitadas e duração da visita, recolhidos automaticamente
-          através de cookies
+          <strong>Dados técnicos</strong> — endereço IP e informações do
+          navegador, registados automaticamente nos logs do servidor de
+          alojamento
         </li>
       </ul>
 
@@ -86,7 +86,7 @@ export default function PrivacidadePage() {
       <ul>
         <li>
           <strong>Consentimento (art. 6.º, n.º 1, al. a)</strong> — quando
-          submete o formulário de contacto ou aceita cookies não essenciais
+          submete o formulário de contacto
         </li>
         <li>
           <strong>Execução de diligências pré-contratuais (art. 6.º, n.º 1, al. b)</strong>{' '}
@@ -95,7 +95,7 @@ export default function PrivacidadePage() {
         </li>
         <li>
           <strong>Interesse legítimo (art. 6.º, n.º 1, al. f)</strong> — para
-          melhoria do website e análise de utilização
+          garantir a segurança e o correto funcionamento do website
         </li>
       </ul>
 
@@ -111,7 +111,7 @@ export default function PrivacidadePage() {
           armazenamento de dados de leads
         </li>
         <li>
-          <strong>Vercel</strong> — alojamento do website
+          <strong>Railway</strong> — alojamento do website
         </li>
         <li>
           <strong>Calendly</strong> — agendamento de reuniões
