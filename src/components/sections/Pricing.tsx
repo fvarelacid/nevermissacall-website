@@ -150,7 +150,7 @@ export function Pricing({ onCTAClick }: PricingProps) {
                     <span className="text-xl font-medium text-slate-500 mb-1.5">/mês</span>
                   </div>
                 )}
-                <p className="text-sm text-slate-400 mb-6">por clínica</p>
+                <p className="text-sm text-slate-400 mb-6">por número</p>
 
                 {/* Call limit — the key differentiator */}
                 <div className="border-t border-slate-100 pt-5 mb-6 flex-1 space-y-2">
