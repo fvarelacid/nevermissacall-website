@@ -13,8 +13,8 @@ const sharedFeatures = [
   'Disponível 24h, 7 dias por semana, 365 dias por ano',
   'Marcação e cancelamento de consultas',
   'Responde a dúvidas dos clientes',
-  'Personalizado para a sua clínica',
   'Configuração incluída',
+  'Personalizado para a sua clínica',
   'Sem contratos de longa duração',
   'Suporte bilingue: Português e Inglês nativos',
 ]
@@ -70,9 +70,6 @@ export function Pricing({ onCTAClick }: PricingProps) {
           viewport={{ once: true, margin: '-80px' }}
           variants={fadeUp}
         >
-          <div className="inline-block text-xs font-semibold text-blue-600 uppercase tracking-widest mb-3">
-            Planos
-          </div>
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight mb-3">
             Preço simples, sem surpresas
           </h2>
@@ -113,15 +110,13 @@ export function Pricing({ onCTAClick }: PricingProps) {
               whileInView="visible"
               viewport={{ once: true, margin: '-80px' }}
               variants={fadeUp}
-              className="relative rounded-2xl overflow-hidden shadow-2xl"
-            >
-              {/* gradient border */}
-              <div className={`absolute inset-0 rounded-2xl ${
+              className={`rounded-2xl p-[2px] shadow-2xl ${
                 plan.highlighted
                   ? 'bg-gradient-to-br from-blue-500 via-violet-500 to-blue-600'
                   : 'bg-gradient-to-br from-slate-300 to-slate-400'
-              }`} />
-              <div className="relative m-[2px] bg-white rounded-2xl p-6 sm:p-8 flex flex-col h-full">
+              }`}
+            >
+              <div className="relative bg-white rounded-[14px] p-6 sm:p-8 flex flex-col h-full">
 
                 {plan.highlighted && (
                   <div className="absolute -top-[1px] left-1/2 -translate-x-1/2">
