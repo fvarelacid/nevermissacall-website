@@ -13,17 +13,32 @@ const DEFAULTS: RoiInputs = {
   workingDaysPerMonth: 22,
 }
 
-const AGENT_MONTHLY_COST = 249
+function getMonthlyPackageCost(callsPerMonth: number): number {
+  if (callsPerMonth <= 150) return 149
+  if (callsPerMonth <= 350) return 249
+  if (callsPerMonth <= 700) return 449
+  return 449 // >700: Unlimited Care é sob consulta; usa Advanced como referência
+}
 
-function calculateROI(inputs: RoiInputs): RoiOutputs {
+function getPlanName(callsPerMonth: number): string {
+  if (callsPerMonth <= 150) return 'Basic Care'
+  if (callsPerMonth <= 350) return 'Pro Care'
+  if (callsPerMonth <= 700) return 'Advanced Care'
+  return 'Unlimited Care'
+}
+
+function calculateROI(inputs: RoiInputs): RoiOutputs & { callsPerMonth: number; monthlyCost: number } {
+  const callsPerMonth = Math.round(inputs.callsPerDay * inputs.workingDaysPerMonth)
+  const monthlyCost = getMonthlyPackageCost(callsPerMonth)
+
   const missedCallsPerDay = inputs.callsPerDay * (inputs.missedCallsPercent / 100)
   const missedCallsPerMonth = Math.round(missedCallsPerDay * inputs.workingDaysPerMonth)
   const lostConsultations = Math.round(missedCallsPerMonth * (inputs.conversionRate / 100))
   const lostRevenuePerMonth = lostConsultations * inputs.avgConsultationValue
-  const annualROIEstimate = Math.round(lostRevenuePerMonth * 12 - AGENT_MONTHLY_COST * 12)
+  const annualROIEstimate = Math.round(lostRevenuePerMonth * 12 - monthlyCost * 12)
 
   // How many consultations needed to cover annual cost, expressed as % of annual missed consultations
-  const annualCost = AGENT_MONTHLY_COST * 12
+  const annualCost = monthlyCost * 12
   const consultationsNeeded = inputs.avgConsultationValue > 0
     ? annualCost / inputs.avgConsultationValue
     : 0
@@ -38,6 +53,8 @@ function calculateROI(inputs: RoiInputs): RoiOutputs {
     lostRevenuePerMonth,
     annualROIEstimate,
     breakEvenPercent,
+    callsPerMonth,
+    monthlyCost,
   }
 }
 
@@ -234,6 +251,20 @@ export function RoiCalculator({ onCTAClick }: RoiCalculatorProps) {
               min={10}
               max={31}
             />
+
+            {/* Dynamic package info */}
+            <div className="rounded-xl bg-blue-50 border border-blue-100 p-4 space-y-1">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Chamadas estimadas / mês</span>
+                <span className="font-semibold text-gray-900">{outputs.callsPerMonth.toLocaleString('pt-PT')}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Pacote aplicável</span>
+                <span className="font-semibold text-blue-600">
+                  {getPlanName(outputs.callsPerMonth)}{outputs.callsPerMonth <= 700 ? ` — €${outputs.monthlyCost} / mês` : ' — Sob consulta'}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Outputs */}
@@ -272,7 +303,7 @@ export function RoiCalculator({ onCTAClick }: RoiCalculatorProps) {
                 em consultas não marcadas.
               </p>
               <p className="text-sm text-blue-200">
-                Para pagar o sistema (€{(AGENT_MONTHLY_COST * 12).toLocaleString('pt-PT')}/ano), basta recuperar{' '}
+                Para pagar o sistema (€{outputs.monthlyCost.toLocaleString('pt-PT')}/mês), basta recuperar{' '}
                 <span className="text-white font-semibold">
                   {outputs.breakEvenPercent > 0 ? `${outputs.breakEvenPercent}% das consultas perdidas` : 'algumas consultas perdidas'}
                 </span>{' '}
